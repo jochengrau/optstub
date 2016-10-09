@@ -62,6 +62,4 @@ fabric.properties
 .idea/
 .vertx/
 optstub.iml
-src/main/resources/
-src/test/
 target/
