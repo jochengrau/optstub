@@ -14,31 +14,42 @@ import java.io.Writer;
 import java.util.HashMap;
 import java.util.Map;
 
-public class OptimizerResultCalculator {
+public class TemplateResultCalculator {
 
     static Configuration cfg;
 
     static {
         cfg = new Configuration(Configuration.VERSION_2_3_23);
-        try {
-            cfg.setDirectoryForTemplateLoading(new File("/Users/jochen/IdeaProjects/optstub/target/classes/templates"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        cfg.setClassLoaderForTemplateLoading(TemplateResultCalculator.class.getClassLoader(), "/templates");
         cfg.setDefaultEncoding("UTF-8");
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
         cfg.setLogTemplateExceptions(false);
     }
 
-    public String computeResult(String flightLeg, String traceId){
+    public String generateOptimizerResult(String flightLeg, String traceId){
 
-        String result = "computation failed";
+        Map<String, String> data = new HashMap<>();
+        data.put("flightLeg", flightLeg);
+        data.put("traceId", traceId);
+        String templateName = "optimizerResult.ftl";
 
+        return resolveTemplate(data, templateName);
+    }
+
+    public String generateSmsResult(String status, String traceId){
+
+        Map<String, String> data = new HashMap<>();
+        data.put("traceId", traceId);
+        data.put("status", status);
+        String templateName = "sms_response.ftl";
+
+        return resolveTemplate(data, templateName);
+    }
+
+    String resolveTemplate(Map<String, String> data, String templateName) {
+        String result = "";
         try {
-            Map<String, String> data = new HashMap<>();
-            Template template = cfg.getTemplate("result.ftl");
-            data.put("flightLeg", flightLeg);
-            data.put("traceId", traceId);
+            Template template = cfg.getTemplate(templateName);
             Writer out = new StringWriter();
             template.process(data, out);
             result = out.toString();
@@ -50,4 +61,5 @@ public class OptimizerResultCalculator {
         }
         return result;
     }
+
 }

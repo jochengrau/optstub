@@ -1,6 +1,4 @@
 import io.vertx.core.*;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -25,9 +23,9 @@ public class OptimizerStub extends AbstractVerticle {
         Router router = Router.router(vertx);
         router.route().handler(BodyHandler.create());
 
-        router.post("/lido/los/calculation/").handler(this::handleCalculationRequest);
-        router.get("/lido/sms/:traceid").handler(this::handleProgressRequest);
-        router.get("/lido/los/results/:traceid").handler(this::handleResultRequest);
+        router.post("/lido/los/ofpcalculation/").handler(this::handleCalculationRequest);
+        router.get("/lido/sms/status/:traceid").handler(this::handleProgressRequest);
+        router.get("/lido/los/ofpcalculationresult/:traceid").handler(this::handleResultRequest);
 
         server.requestHandler(router::accept).listen(8080);
     }
@@ -37,23 +35,27 @@ public class OptimizerStub extends AbstractVerticle {
 
         HttpServerResponse response = routingContext.response();
         response.putHeader("content-type", "text/plain");
-        String completed = progress.get(traceId);
-
-        response.setStatusCode(200).end(("in progress".equals(completed)?"in progress":completed));
+        String result = progress.get(traceId);
+        if("in progress".equals(result)){
+            response.setStatusCode(303).end();
+        }
+        else{
+            response.setStatusCode(200).end(("in progress".equals(result)?"in progress":result));
+        }
     }
 
     private void handleProgressRequest(RoutingContext routingContext) {
-        String traceId = routingContext.request().getParam("traceid");
 
+        String traceId = routingContext.request().getParam("traceid");
         HttpServerResponse response = routingContext.response();
         response.putHeader("content-type", "text/plain");
-        String completed = progress.get(traceId);
-        if("in progress".equals(completed)){
-            response.setStatusCode(200).end("Calculation in progress\n");
+        String status = progress.get(traceId);
+        if("in progress".equals(status)){
+            response.putHeader("Location", "http://" + routingContext.request().host() + "/lido/sms/status/" + traceId);
+            response.setStatusCode(200).end(new TemplateResultCalculator().generateSmsResult("start", traceId));
         }
         else{
-            response.putHeader("Location", "http://" + routingContext.request().host() + "/lido/los/results/" + traceId);
-            response.setStatusCode(303).end();
+            response.setStatusCode(200).end(new TemplateResultCalculator().generateSmsResult("completed", traceId));
         }
     }
 
@@ -69,17 +71,19 @@ public class OptimizerStub extends AbstractVerticle {
         vertx.setTimer(5000, new Handler<Long>() {
             @Override
             public void handle(Long event) {
-                String computeResult = new OptimizerResultCalculator().computeResult(flightleg, traceId);
+                String computeResult = new TemplateResultCalculator().generateOptimizerResult(flightleg, traceId);
                 logger.info("calculation completed");
                 progress.put(traceId, computeResult);
-                vertx.eventBus().send("calculationCompleted", computeResult);
+                String notification = "Calculation with traceId " + traceId + " completed!\n"
+                        + "Location: http://" + routingContext.request().host() + "/lido/los/ofpcalculationresult/" + traceId;
+                vertx.eventBus().send("calculationCompleted", notification);
             }
         });
 
         logger.info("send calculation request acceptance");
         HttpServerResponse response = routingContext.response();
         response.putHeader("content-type", "text/plain");
-        response.putHeader("Location", "http://" + routingContext.request().host() + "/lido/los/results/" + traceId);
+        response.putHeader("Location", "http://" + routingContext.request().host() + "/lido/sms/status/" + traceId);
         response.setStatusCode(202).end();
     }
 }
