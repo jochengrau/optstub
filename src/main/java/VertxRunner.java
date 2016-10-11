@@ -1,12 +1,23 @@
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
 
 /**
  * Created by jochen on 09Oct16.
  */
-public class VertxRunner {
+public class VertxRunner extends AbstractVerticle{
+
     public static void main(String[] args) {
-        Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(OptimizerStub.class.getName());
-        vertx.deployVerticle(OptimizerNotification.class.getName());
+        Vertx myVertx = Vertx.vertx();
+        new VertxRunner().deployVerticles(myVertx);
     }
+
+    @Override
+    public void start(){
+        deployVerticles(vertx);
+    }
+
+    public void deployVerticles(Vertx vx){
+        vx.deployVerticle(OptimizerStub.class.getName());
+        vx.deployVerticle(OptimizerNotification.class.getName());
+    }
+
 }
