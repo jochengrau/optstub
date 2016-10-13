@@ -6,11 +6,15 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.io.Writer;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.*;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,11 +30,22 @@ public class TemplateResultCalculator {
         cfg.setLogTemplateExceptions(false);
     }
 
-    public String generateOptimizerResult(String flightLeg, String traceId){
+    static final Map<String, String> xpath_expressions;
+    static {
+        xpath_expressions = new HashMap<>();
+        xpath_expressions.put("flightNumber", "/OfpCalculationRequest/RequestDescription/FlightNo");
+        xpath_expressions.put("airline", "/OfpCalculationRequest/RequestDescription/Airline/Icao");
+        xpath_expressions.put("airlineOperator", "/OfpCalculationRequest/RequestDescription/AirlineOperator/Icao");
+        xpath_expressions.put("departureAirport", "/OfpCalculationRequest/RequestDescription/DepartureAirport/Iata");
+        xpath_expressions.put("destinationAirport", "/OfpCalculationRequest/RequestDescription/DestinationAirport/Iata");
+        xpath_expressions.put("flightDate", "/OfpCalculationRequest/RequestDescription/DayOfFlight");
+    }
+
+    public String generateOptimizerResult(String requestBody, String traceId){
 
         Map<String, String> data = new HashMap<>();
-        data.put("flightLeg", flightLeg);
         data.put("traceId", traceId);
+        extractRequestValues(requestBody, data);
         String templateName = "optimizerResult.ftl";
 
         return resolveTemplate(data, templateName);
@@ -54,12 +69,27 @@ public class TemplateResultCalculator {
             template.process(data, out);
             result = out.toString();
             return result;
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (TemplateException e) {
+        } catch (IOException | TemplateException e) {
             e.printStackTrace();
         }
         return result;
     }
 
+    private void extractRequestValues(String requestBody, Map<String, String> data){
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            Document document = db.parse(new InputSource(new StringReader(requestBody)));
+            XPath xPath = XPathFactory.newInstance().newXPath();
+            xpath_expressions.forEach((k,v)->{
+                try {
+                    data.put(k, (String) xPath.compile(v).evaluate(document, XPathConstants.STRING));
+                } catch (XPathExpressionException e) {
+                    e.printStackTrace();
+                }
+            });
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
