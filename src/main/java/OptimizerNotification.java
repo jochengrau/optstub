@@ -4,7 +4,10 @@ import io.vertx.core.AbstractVerticle;
 import org.apache.camel.CamelContext;
 import org.apache.camel.RoutesBuilder;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.stream.StreamComponent;
 import org.apache.camel.impl.DefaultCamelContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vertx.camel.InboundMapping.fromCamel;
 import static io.vertx.camel.OutboundMapping.fromVertx;
@@ -16,11 +19,21 @@ import static org.apache.camel.language.simple.SimpleLanguage.simple;
  */
 public class OptimizerNotification extends AbstractVerticle {
 
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    Boolean jmsNotificationEnabled = true;
+
     @Override
     public void start() throws Exception {
+
+        String brokerUrl = System.getenv().getOrDefault("BROKER_URL", "tcp://10.236.57.152:8516");
+        logger.info("using BROKER_URL (environment variable) " + brokerUrl);
+        if("".equals(brokerUrl)) jmsNotificationEnabled = false;
+
         CamelContext camelContext = new DefaultCamelContext();
 
-        camelContext.addComponent("activemq", activeMQComponent("tcp://10.236.57.154:8810"));
+        camelContext.addComponent("activemq", activeMQComponent(brokerUrl));
+        camelContext.addComponent("stream", new StreamComponent());
 
         camelContext.addRoutes(createMyRoutes());
 
@@ -35,15 +48,16 @@ public class OptimizerNotification extends AbstractVerticle {
         return new RouteBuilder() {
             public void configure() throws Exception {
 
-                from("direct:losCalculationCompleted")
-                        .to("direct:fileNotification")
-                        .to("direct:jmsNotification");
+                String notificationQueueName = System.getenv().getOrDefault("NOTIFICATION_QUEUENAME", "LOS.Q.CCC.CALCULATIONCOMPLETED.TO.IFS.NONE");
+                logger.info("using NOTIFICATION_QUEUENAME (environment variable) " + notificationQueueName);
 
-                from("direct:fileNotification")
-                        .to("file:///home/jochen/projects/optstub/target/notifications");
-
-                from("direct:jmsNotification")
-                        .to("activemq:queue:LOS.Q.CCC.CALCULATIONCOMPLETED.TO.IFS.NONE");
+                if(jmsNotificationEnabled)
+                    from("direct:losCalculationCompleted")
+                            .to("stream:out")
+                            .to("activemq:queue:" + notificationQueueName);
+                else
+                    from("direct:losCalculationCompleted")
+                            .to("stream:out");
             }
         };
     }
