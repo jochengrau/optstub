@@ -2,26 +2,26 @@
 
 <OfpCalculationJobResult>
     <ResultDescription>
-        <FlightNo>342Y</FlightNo>
+        <FlightNo>${flightNumber}</FlightNo>
         <Airline>
-            <Icao>DLH</Icao>
+            <Icao>${airline}</Icao>
             <Iata>LH</Iata>
         </Airline>
         <AirlineOperator>
-            <Icao>DLH</Icao>
+            <Icao>${airlineOperator}</Icao>
             <Iata>LH</Iata>
         </AirlineOperator>
         <DepartureAirport>
             <Icao>EDDF</Icao>
-            <Iata>FRA</Iata>
+            <Iata>${departureAirport}</Iata>
         </DepartureAirport>
         <DestinationAirport>
             <Icao>EDDM</Icao>
-            <Iata>MUC</Iata>
+            <Iata>${destinationAirport}</Iata>
         </DestinationAirport>
         <STD>2016-03-01T10:00:00Z</STD>
         <ETD>2016-03-01T10:00:00Z</ETD>
-        <DayOfFlight>2016-03-01</DayOfFlight>
+        <DayOfFlight>${flightDate}</DayOfFlight>
         <RequestorId>u538330</RequestorId>
         <RamLoadRevision>---not-implemented---</RamLoadRevision>
         <Urgency>Medium</Urgency>
